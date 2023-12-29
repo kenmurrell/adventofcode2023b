@@ -41,7 +41,20 @@ func PartOne(path string) int {
 }
 
 func PartTwo(path string) int {
-	return 0
+	b := ParseInput(path)
+	for i := 0; i < 1000; i++ {
+		for j:=0; j<4; j++{
+			tiltboard(b)
+			rotateRight(b) //this is
+			rotateRight(b) //incredibly dumb
+			rotateRight(b) //but I've forgotten how to rotate CC
+		}
+		if i > 0 && i % 100 == 0 {
+			fmt.Printf("iter: %d\n", i)
+		}
+    }
+	r := calculate(b)
+	return r
 }
 
 func tiltboard(board *[][]string) {
@@ -82,8 +95,24 @@ func calculate(board *[][]string) int{
 	}
 	return r
 }
-
-
+func rotateRight(board *[][]string) {
+	ln := len(*board)
+	for row:=0; row< ln; row++ {
+		for col:=row; col < ln; col++ {
+			temp1 := (*board)[row][col]
+			temp2 := (*board)[col][row]
+			(*board)[col][row] = temp1
+			(*board)[row][col] = temp2
+		}
+	}
+	for row:=0; row< ln; row++ {
+		run := (*board)[row]
+		for i, j := 0, len(run)-1; i < j; i, j = i+1, j-1 {
+			run[i], run[j] = run[j], run[i]
+		}
+		(*board)[row] = run
+	}
+}
 
 func main() {
 	start1 := time.Now()
@@ -94,4 +123,14 @@ func main() {
 	r2 := PartTwo("data.txt")
 	elapsed2 := time.Since(start2).Seconds()
 	fmt.Printf("ANSWER TWO: %d; elapsed %fs\n", r2, elapsed2)
+}
+
+func printBoard(x *[][]string){
+	for col := 0; col<len(*x);col++ {
+		for row := 0; row<len((*x)[0]);row++ {
+			fmt.Print((*x)[row][col])
+		}
+		fmt.Print("\n")
+	}
+	fmt.Print("\n")
 }
