@@ -15,10 +15,18 @@ func TestPartOne(t *testing.T) {
 	rTest2 := PartOne("test2.txt")
 	if rTest2 != ansTest2 {
 		t.Errorf("Got %d; want %d", rTest2, ansTest2)
-	}	
-	
+	}
+
 	ansFull := 6886
 	rFull := PartOne("data.txt")
+	if rFull != ansFull {
+		t.Errorf("Got %d; want %d", rFull, ansFull)
+	}
+}
+
+func TestPartTwo(t *testing.T) {
+	ansFull := 371
+	rFull := PartTwo("data.txt")
 	if rFull != ansFull {
 		t.Errorf("Got %d; want %d", rFull, ansFull)
 	}

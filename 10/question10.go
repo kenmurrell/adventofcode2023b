@@ -14,18 +14,17 @@ type Action func(*Point, *int)
 
 type Point struct {
 	Column int
-	Row int
+	Row    int
 }
 
 type Empty struct {
-
 }
 
-func (p1 *Point) Add(p2 *Point) Point{
-	return Point{p1.Column+p2.Column, p1.Row+p2.Row}
+func (p1 *Point) Add(p2 *Point) Point {
+	return Point{p1.Column + p2.Column, p1.Row + p2.Row}
 }
 
-func CreateChar2Point() *map[string][]Point{
+func CreateChar2Point() *map[string][]Point {
 	char2Point := make(map[string][]Point)
 	char2Point["|"] = []Point{{0, 1}, {0, -1}}
 	char2Point["-"] = []Point{{1, 0}, {-1, 0}}
@@ -50,7 +49,7 @@ func ParseInput(path string) (*Point, *map[Point]string) {
 	for scanner.Scan() {
 		text := scanner.Text()
 		lineSplit := strings.Split(text, "")
-		for j:=0; j<len(lineSplit); j++{
+		for j := 0; j < len(lineSplit); j++ {
 			p := Point{j, i}
 			letter := lineSplit[j]
 			if letter == "S" {
@@ -71,16 +70,16 @@ func PartOne(path string) int {
 	lenMap := make(map[Point]int)
 
 	wg.Add(1)
-	var addToMap Action = func(p *Point, i *int){
-		if val, ok := lenMap[*p]; !ok || val > *i{
-			lenMap[*p] = *i+1
-		} 
-	  };
+	var addToMap Action = func(p *Point, i *int) {
+		if val, ok := lenMap[*p]; !ok || val > *i {
+			lenMap[*p] = *i + 1
+		}
+	}
 	go traverse(&mu, &wg, 0, *start, *start, pipeMap, addToMap, char2Point)
 	wg.Wait()
 	highest := 0
 	for _, v := range lenMap {
-		if v > highest{
+		if v > highest {
 			highest = v
 		}
 	}
@@ -96,34 +95,65 @@ func traverse(
 	pipeMap *map[Point]string,
 	act Action,
 	char2Point *map[string][]Point) {
-		defer wg.Done()
-		letter := (*pipeMap)[p]
-		directions := (*char2Point)[letter]
-		for _, dir := range directions{
-			nextPoint := p.Add(&dir)
-			if nextPoint == prevp {
+	defer wg.Done()
+	letter := (*pipeMap)[p]
+	directions := (*char2Point)[letter]
+	for _, dir := range directions {
+		nextPoint := p.Add(&dir)
+		if nextPoint == prevp {
+			continue
+		}
+		nextLetter := (*pipeMap)[nextPoint]
+		if nextLetter == "S" {
+			return
+		}
+		nextletterdirs := (*char2Point)[nextLetter]
+		for _, nextLetterDir := range nextletterdirs {
+			if nextPoint.Add(&nextLetterDir) != p {
 				continue
 			}
-			nextLetter := (*pipeMap)[nextPoint]
-			if nextLetter == "S" {
-				return
-			}
-			nextletterdirs := (*char2Point)[nextLetter]
-			for _, nextLetterDir := range nextletterdirs{
-				if nextPoint.Add(&nextLetterDir) != p {
-					continue
-				}
-				mu.Lock()
-				act(&nextPoint, &currLen)
-				mu.Unlock()
-				wg.Add(1)
-				go traverse(mu, wg, currLen+1, p, nextPoint, pipeMap, act, char2Point)
-			}
-		}			
+			mu.Lock()
+			act(&nextPoint, &currLen)
+			mu.Unlock()
+			wg.Add(1)
+			go traverse(mu, wg, currLen+1, p, nextPoint, pipeMap, act, char2Point)
+		}
+	}
 }
 
 func PartTwo(path string) int {
-	return 0
+	start, pipeMap := ParseInput(path)
+	char2Point := CreateChar2Point()
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	loopMap := make(map[Point]Empty)
+	loopMap[*start] = Empty{}
+	wg.Add(1)
+	var addToMap Action = func(p *Point, i *int) {
+		loopMap[*p] = Empty{} // might as well reuse this
+	}
+	go traverse(&mu, &wg, 0, *start, *start, pipeMap, addToMap, char2Point)
+	wg.Wait()
+	count := 0
+	for p, _ := range *pipeMap {
+		if _, ok := loopMap[p]; ok {
+			continue
+		}
+		crossCnt := 0
+		for col := p.Column - 1; col >= 0; col-- {
+			nextPoint := Point{col, p.Row}
+			if _, ok := loopMap[nextPoint]; !ok {
+				continue
+			}
+			if (*pipeMap)[nextPoint] == "|" || (*pipeMap)[nextPoint] == "L" || (*pipeMap)[nextPoint] == "J" || (*pipeMap)[nextPoint] == "S" {
+				crossCnt += 1
+			}
+		}
+		if crossCnt%2 == 1 {
+			count += 1
+		}
+	}
+	return count
 }
 
 func main() {
