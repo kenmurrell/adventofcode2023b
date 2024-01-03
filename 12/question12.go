@@ -11,16 +11,8 @@ import (
 	"time"
 )
 
-type Cond int
-
-const (
-	Good Cond = iota
-	Bad
-	Unkn
-)
-
 type Spring struct {
-	data   []Cond
+	data   string
 	groups []int
 }
 
@@ -35,22 +27,12 @@ func ParseInput(path string) *[]Spring {
 	for scanner.Scan() {
 		text := scanner.Text()
 		textSplit := strings.Split(text, " ")
-		var data []Cond
-		for _, d := range strings.Split(textSplit[0], "") {
-			if d == "." {
-				data = append(data, Good)
-			} else if d == "#" {
-				data = append(data, Bad)
-			} else if d == "?" {
-				data = append(data, Unkn)
-			}
-		}
 		var groups []int
 		for _, d := range strings.Split(textSplit[1], ",") {
 			val, _ := strconv.Atoi(d)
 			groups = append(groups, val)
 		}
-		springs = append(springs, Spring{data, groups})
+		springs = append(springs, Spring{textSplit[0], groups})
 	}
 	return &springs
 }
@@ -64,93 +46,121 @@ func PartOne(path string) int {
 	return totalcount
 }
 
-func PartTwo(path string) int {
-	totalcount := 0
-	springs := ParseInput(path)
-	unFoldedSprings := make([]Spring, len(*springs), len(*springs))
-	for i, s := range *springs {
-		var data2 []Cond
-		for x := 0; x < 5; x++ {
-			if x > 0 {
-				data2 = append(data2, Unkn)
-			}
-			data2 = append(data2, s.data...)
-		}
-		var group2 []int
-		for x := 0; x < 5; x++ {
-			group2 = append(group2, s.groups...)
-		}
-		unFoldedSprings[i] = Spring{data2, group2}
-	}
-	for i, s := range unFoldedSprings {
-		totalcount += combosPerSpring(&s)
-		fmt.Printf("Completed %d\n", i)
-	}
-	return totalcount
-}
-
 func combosPerSpring(s *Spring) int {
 	comboCount := 0
 	unknCnt := 0
 	for _, val := range s.data {
-		if val == Unkn {
+		if val == '?' {
 			unknCnt += 1
 		}
 	}
 	possibilities := int(math.Pow(2, float64(unknCnt)))
 	for itr := 0; itr < possibilities; itr++ {
-		mutated := make([]Cond, len(s.data), len(s.data))
+		var mutated string
 		unknownId := 0
-		for index, val := range s.data {
-			if val == Unkn {
+		for _, val := range s.data {
+			if val == '?' {
 				x := (itr>>unknownId)&0x1 == 1
 				if x {
-					mutated[index] = Good
+					mutated += "."
 				} else {
-					mutated[index] = Bad
+					mutated += "#"
 				}
 				unknownId += 1
 			} else {
-				mutated[index] = val
+				mutated += string(val)
 			}
 		}
-		if isEqual(count(&mutated), &s.groups) {
+		if check(mutated, &s.groups) {
 			comboCount += 1
 		}
 	}
 	return comboCount
 }
 
-func isEqual(group1 *[]int, group2 *[]int) bool {
-	if len(*group1) != len(*group2) {
-		return false
-	}
-	for i := 0; i < len(*group1); i++ {
-		if (*group1)[i] != (*group2)[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func count(data *[]Cond) *[]int {
+func check(data string, group *[]int) bool {
 	count := 0
-	var output []int
-	for _, d := range *data {
-		if d == Bad {
+	groupIdx := 0
+	for _, d := range data {
+		if d == '#' {
 			count += 1
-		}
-		if d == Good {
-			if count > 0 {
-				output = append(output, count)
+		} else if d == '.' && count > 0 {
+			if groupIdx >= len(*group) || (*group)[groupIdx] != count {
+				return false
 			}
+			groupIdx++
 			count = 0
 		}
 	}
 	if count > 0 {
-		output = append(output, count)
+		if groupIdx >= len(*group) || (*group)[groupIdx] != count {
+			return false
+		}
+		groupIdx++
 	}
-	return &output
+	return groupIdx == len(*group)
+}
+
+func PartTwo(path string) int {
+	total := 0
+	var comboMap = make(map[string]int)
+	for _, spring := range *ParseInput(path) {
+		dupedData := strings.Repeat("?"+spring.data, 5)[1:]
+		var dupedGroups []int
+		for i := 0; i < 5; i++ {
+			dupedGroups = append(dupedGroups, spring.groups...)
+		}
+		total += calculate(dupedData, dupedGroups, &comboMap, -1)
+	}
+	return total
+}
+
+func calculate(data string, groups []int, comboMap *map[string]int, idx int) int {
+	key := fmt.Sprintf("%s %s %d", data, arr2Str(&groups), idx)
+	if m, ok := (*comboMap)[key]; ok {
+		return m
+	}
+
+	if len(data) == 0 && len(groups) == 0 && idx <= 0 {
+		return 1
+	} else if len(data) == 0 {
+		return 0
+	}
+	output := 0
+	if data[0] == '#' {
+		if idx == 0 || (idx == -1 && len(groups) == 0) {
+			return 0
+		} else if idx == -1 {
+			idx = groups[0]
+			groups = groups[1:]
+		}
+		output = calculate(data[1:], groups, comboMap, idx-1)
+	} else if data[0] == '.' {
+		if idx <= 0 {
+			output = calculate(data[1:], groups, comboMap, -1)
+		}
+	} else if data[0] == '?' {
+		// calculate if it were bad
+		baddata := "#" + data[1:]
+		r1 := calculate(baddata, groups, comboMap, idx)
+		// calculate if it were good
+		opdata := "." + data[1:]
+		r2 := calculate(opdata, groups, comboMap, idx)
+		output = r1 + r2
+	} else {
+		//uh oh
+	}
+
+	(*comboMap)[key] = output
+	return output
+}
+
+func arr2Str(arr *[]int) string {
+	b := make([]string, len(*arr))
+	for i, v := range *arr {
+		b[i] = strconv.Itoa(v)
+	}
+	return strings.Join(b, ",")
 }
 
 func main() {
